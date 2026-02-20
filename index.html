@@ -12,9 +12,6 @@
     <!-- AlpineJS -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
-    <!-- RSS Parser -->
-    <script src="https://cdn.jsdelivr.net/npm/rss-parser@3.7.6/dist/rss-parser.min.js"></script>
-
     <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -64,14 +61,28 @@
         </section>
         <section id="chain-controls" class="w-full md:w-1/2 lg:w-1/3 xl:w-1/4 md:p-2 mt-4 md:mt-0">
             <div class="bg-white rounded-sm shadow">
-                <div class="uppercase font-bold pt-2 pl-2 text-center w-full md:text-left">Chain controls</div>
-                <div class="w-full p-2 text-xs divide-y" x-data="setup()" x-init="init">
-                    <template x-for="entry in feed.slice(0,10)">
-                        <div class="py-1 flex space-x-2 items-center h-24">
-                            <span class="w-20 text-xs" x-text="entry.date.toLocaleDateString()"></span>
-                            <span class="grow" x-html="entry.content"></span>
-                        </div>
-                    </template>
+                <div class="uppercase font-bold pt-2 pl-2 text-center w-full md:text-left">Chain Controls - I-80</div>
+                <div class="w-full p-2 text-xs" x-data="chainControls()" x-init="init()">
+                    <div x-show="loading" class="text-center py-4 text-gray-500">Loading...</div>
+                    <div x-show="error" class="text-center py-4 text-red-500" x-text="error"></div>
+                    <div x-show="!loading && !error" class="divide-y">
+                        <template x-for="cc in controls" :key="cc.index">
+                            <div class="py-2">
+                                <div class="flex justify-between items-start">
+                                    <span class="font-bold" x-text="cc.location"></span>
+                                    <span class="px-2 py-0.5 rounded text-white text-xs"
+                                        :class="cc.status === 'R-0' ? 'bg-green-500' : 'bg-red-500'"
+                                        x-text="cc.status"></span>
+                                </div>
+                                <div class="text-gray-600 mt-1" x-text="cc.description"></div>
+                                <div class="text-gray-400 mt-1" x-text="cc.direction + ' - ' + cc.elevation + ' ft'"></div>
+                            </div>
+                        </template>
+                    </div>
+                    <div x-show="!loading && !error && controls.length === 0" class="text-center py-4 text-gray-500">
+                        No chain control data available
+                    </div>
+                    <div x-show="!loading && !error" class="text-gray-400 text-center mt-2 pt-2 border-t" x-text="'Updated: ' + lastUpdate"></div>
                 </div>
             </div>
         </section>
@@ -113,46 +124,41 @@
     </div>
 
     <script>
-        let parser = new RSSParser()
-
-        function setup() {
+        function chainControls() {
             return {
-                feed: [],
+                controls: [],
+                loading: true,
+                error: null,
+                lastUpdate: '',
 
-                sources: [
-                    'https://xyzyx.org/@i80chains.rss'
-                ],
+                async init() {
+                    try {
+                        const response = await fetch('https://cwwp2.dot.ca.gov/data/d3/cc/ccStatusD03.json');
+                        if (!response.ok) throw new Error('Failed to fetch data');
+                        const data = await response.json();
 
-                sortedFeed() {
-                    return this.feed.sort((first, second) => {
-                        return second.date.getTime() - first.date.getTime()
-                    })
-                },
+                        // Filter for I-80 (route 80) and sort by postmile
+                        this.controls = data.data
+                            .filter(item => item.cc.location.route === '80')
+                            .map(item => ({
+                                index: item.cc.index,
+                                location: item.cc.location.locationName,
+                                direction: item.cc.location.direction === 'E' ? 'Eastbound' : 'Westbound',
+                                elevation: item.cc.location.elevation,
+                                status: item.cc.statusData.status,
+                                description: item.cc.statusData.statusDescription,
+                                postmile: parseFloat(item.cc.location.postmile)
+                            }))
+                            .sort((a, b) => a.postmile - b.postmile);
 
-                get(source) {
-                    parser.parseURL(source, (err, feed) => {
-                        if (err) { }
-
-                        feed.items.slice(0, 10).forEach(entry => {
-                            this.addToFeed(entry)
-                        })
-                    })
-                },
-
-                addToFeed(item) {
-                    this.feed.push({
-                        author: item.author,
-                        title: item.title,
-                        content: item.content,
-                        link: item.link,
-                        date: new Date(item.pubDate),
-                    })
-                },
-
-                init() {
-                    this.sources.forEach(source => {
-                        this.get(source)
-                    })
+                        if (data.data.length > 0) {
+                            const ts = data.data[0].cc.statusData.statusTimestamp;
+                            this.lastUpdate = new Date(ts.statusDate + ' ' + ts.statusTime).toLocaleString();
+                        }
+                    } catch (e) {
+                        this.error = 'Could not load chain controls: ' + e.message;
+                    }
+                    this.loading = false;
                 }
             }
         }
