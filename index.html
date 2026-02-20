@@ -157,28 +157,37 @@
                             .filter(item => item.rwis.location.route === 'I-80' && item.rwis.inService === 'true')
                             .map(item => {
                                 const r = item.rwis;
-                                const w = r.rwisData;
+                                const wd = r.rwisData.windData || {};
+                                const td = r.rwisData.temperatureData || {};
+                                const vd = r.rwisData.visibilityData || {};
+                                const hd = r.rwisData.humidityPrecipData || {};
 
-                                // Convert Celsius to Fahrenheit
-                                const tempC = parseFloat(w.essAirTemperature);
-                                const tempF = Math.round(tempC * 9/5 + 32);
+                                // Get air temperature from sensor table
+                                let tempC = null;
+                                if (td.essTemperatureSensorTable && td.essTemperatureSensorTable[0]) {
+                                    tempC = parseFloat(td.essTemperatureSensorTable[0].essTemperatureSensorEntry.essAirTemperature);
+                                }
+                                const tempF = tempC !== null ? Math.round(tempC * 9/5 + 32) : null;
 
                                 // Convert visibility from meters to miles
-                                const visM = parseFloat(w.essVisibility);
-                                const visMi = (visM / 1609.34).toFixed(1);
+                                const visM = parseFloat(vd.essVisibility);
+                                const visMi = !isNaN(visM) ? (visM / 1609.34).toFixed(1) : null;
 
                                 // Wind speed (already in mph)
-                                const wind = parseInt(w.essAvgWindSpeed);
-                                const gust = parseInt(w.essMaxWindGustSpeed);
+                                const wind = parseInt(wd.essAvgWindSpeed) || 0;
+                                const gust = parseInt(wd.essMaxWindGustSpeed) || 0;
+
+                                // Humidity
+                                const humidity = hd.essRelativeHumidity;
 
                                 return {
                                     name: r.location.locationName.replace('Hwy 80 at ', ''),
                                     elevation: r.location.elevation,
                                     postmile: parseFloat(r.location.postmile),
-                                    temp: `${tempF}°F`,
+                                    temp: tempF !== null ? `${tempF}°F` : '--',
                                     wind: gust > wind ? `${wind} mph (${gust} gust)` : `${wind} mph`,
-                                    visibility: visMi > 10 ? 'Clear' : `${visMi} mi`,
-                                    humidity: `${w.essRelativeHumidity}%`
+                                    visibility: visMi && visMi > 10 ? 'Clear' : visMi ? `${visMi} mi` : '--',
+                                    humidity: humidity ? `${humidity}%` : '--'
                                 };
                             })
                             .sort((a, b) => a.postmile - b.postmile);
