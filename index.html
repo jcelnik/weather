@@ -15,9 +15,6 @@
     <!-- RSS Parser -->
     <script src="https://cdn.jsdelivr.net/npm/rss-parser@3.7.6/dist/rss-parser.min.js"></script>
 
-    <!-- Twitter -->
-    <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
-
     <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -78,20 +75,39 @@
                 </div>
             </div>
         </section>
-        <section id="twitter-feeds" class="w-full lg:w-2/3 xl:w-1/4 md:p-2 mt-4 lg:mt-0" x-data="{
-                    feeds: [
-                { name: 'CaltransDist3', url: 'https://twitter.com/CaltransDist3' }
-            ]
-        }">
-            <div class="bg-white rounded-sm shadow h-[1080px]">
-                <div class="uppercase font-bold pt-2 pl-2 text-center w-full md:text-left">Twitter</div>
-
-                <template x-for="feed in feeds">
-                    <div class="text-xs w-full p-2 h-96">
-                        <a class="twitter-timeline" :href="feed.url" x-text="feed.name" data-tweet-limit="8"
-                            data-height="1000" data-chrome="noheader nofooter noborders"></a>
-                    </div>
-                </template>
+        <section id="links" class="w-full lg:w-2/3 xl:w-1/4 md:p-2 mt-4 lg:mt-0">
+            <div class="bg-white rounded-sm shadow">
+                <div class="uppercase font-bold pt-2 pl-2 text-center w-full md:text-left">Updates</div>
+                <div class="p-4 space-y-3">
+                    <a href="https://x.com/CaltransDist3" target="_blank" class="flex items-center p-3 bg-slate-50 rounded hover:bg-slate-100 transition">
+                        <span class="text-2xl mr-3">🚧</span>
+                        <div>
+                            <div class="font-bold text-sm">Caltrans District 3</div>
+                            <div class="text-xs text-gray-500">@CaltransDist3</div>
+                        </div>
+                    </a>
+                    <a href="https://x.com/CHP_Truckee" target="_blank" class="flex items-center p-3 bg-slate-50 rounded hover:bg-slate-100 transition">
+                        <span class="text-2xl mr-3">🚔</span>
+                        <div>
+                            <div class="font-bold text-sm">CHP Truckee</div>
+                            <div class="text-xs text-gray-500">@CHP_Truckee</div>
+                        </div>
+                    </a>
+                    <a href="https://x.com/NWSReno" target="_blank" class="flex items-center p-3 bg-slate-50 rounded hover:bg-slate-100 transition">
+                        <span class="text-2xl mr-3">🌨️</span>
+                        <div>
+                            <div class="font-bold text-sm">NWS Reno</div>
+                            <div class="text-xs text-gray-500">@NWSReno</div>
+                        </div>
+                    </a>
+                    <a href="https://roads.dot.ca.gov/" target="_blank" class="flex items-center p-3 bg-slate-50 rounded hover:bg-slate-100 transition">
+                        <span class="text-2xl mr-3">🛣️</span>
+                        <div>
+                            <div class="font-bold text-sm">QuickMap</div>
+                            <div class="text-xs text-gray-500">Caltrans Road Conditions</div>
+                        </div>
+                    </a>
+                </div>
             </div>
         </section>
     </div>
