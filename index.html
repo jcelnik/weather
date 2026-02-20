@@ -62,27 +62,18 @@
         <section id="chain-controls" class="w-full md:w-1/2 lg:w-1/3 xl:w-1/4 md:p-2 mt-4 md:mt-0">
             <div class="bg-white rounded-sm shadow">
                 <div class="uppercase font-bold pt-2 pl-2 text-center w-full md:text-left">Chain Controls - I-80</div>
-                <div class="w-full p-2 text-xs" x-data="chainControls()" x-init="init()">
+                <div class="w-full p-4" x-data="chainControls()" x-init="init()">
                     <div x-show="loading" class="text-center py-4 text-gray-500">Loading...</div>
                     <div x-show="error" class="text-center py-4 text-red-500" x-text="error"></div>
-                    <div x-show="!loading && !error" class="divide-y">
-                        <template x-for="cc in controls" :key="cc.index">
-                            <div class="py-2">
-                                <div class="flex justify-between items-start">
-                                    <span class="font-bold" x-text="cc.location"></span>
-                                    <span class="px-2 py-0.5 rounded text-white text-xs"
-                                        :class="cc.status === 'R-0' ? 'bg-green-500' : 'bg-red-500'"
-                                        x-text="cc.status"></span>
-                                </div>
-                                <div class="text-gray-600 mt-1" x-text="cc.description"></div>
-                                <div class="text-gray-400 mt-1" x-text="cc.direction + ' - ' + cc.elevation + ' ft'"></div>
+                    <div x-show="!loading && !error" class="space-y-3">
+                        <template x-for="summary in summaries" :key="summary.direction">
+                            <div class="p-3 rounded" :class="summary.color">
+                                <div class="font-bold text-lg" x-text="summary.direction"></div>
+                                <div class="mt-1" x-text="summary.message"></div>
                             </div>
                         </template>
                     </div>
-                    <div x-show="!loading && !error && controls.length === 0" class="text-center py-4 text-gray-500">
-                        No chain control data available
-                    </div>
-                    <div x-show="!loading && !error" class="text-gray-400 text-center mt-2 pt-2 border-t" x-text="'Updated: ' + lastUpdate"></div>
+                    <div x-show="!loading && !error" class="text-gray-400 text-xs text-center mt-3" x-text="'Updated: ' + lastUpdate"></div>
                 </div>
             </div>
         </section>
@@ -126,7 +117,7 @@
     <script>
         function chainControls() {
             return {
-                controls: [],
+                summaries: [],
                 loading: true,
                 error: null,
                 lastUpdate: '',
@@ -137,22 +128,52 @@
                         if (!response.ok) throw new Error('Failed to fetch data');
                         const data = await response.json();
 
-                        // Filter for I-80 (route 80) and sort by postmile
-                        this.controls = data.data
+                        // Filter for I-80 and organize by direction
+                        const i80 = data.data
                             .filter(item => item.cc.location.route === 'I-80')
                             .map(item => ({
-                                index: item.cc.index,
                                 location: item.cc.location.locationName,
-                                direction: item.cc.location.direction === 'E' ? 'Eastbound' : 'Westbound',
-                                elevation: item.cc.location.elevation,
+                                direction: item.cc.location.direction,
                                 status: item.cc.statusData.status,
-                                description: item.cc.statusData.statusDescription,
                                 postmile: parseFloat(item.cc.location.postmile)
-                            }))
-                            .sort((a, b) => a.postmile - b.postmile);
+                            }));
 
-                        if (data.data.length > 0) {
-                            const ts = data.data[0].cc.statusData.statusTimestamp;
+                        // Process each direction
+                        ['E', 'W'].forEach(dir => {
+                            const points = i80
+                                .filter(p => p.direction === dir)
+                                .sort((a, b) => a.postmile - b.postmile);
+
+                            const dirName = dir === 'E' ? 'EASTBOUND' : 'WESTBOUND';
+
+                            // Find segments with chain controls (not R-0)
+                            const chainsRequired = points.filter(p => p.status !== 'R-0');
+
+                            if (chainsRequired.length === 0) {
+                                this.summaries.push({
+                                    direction: dirName,
+                                    message: 'No restrictions',
+                                    color: 'bg-green-100 text-green-800'
+                                });
+                            } else {
+                                // Find the range
+                                const first = chainsRequired[0];
+                                const last = chainsRequired[chainsRequired.length - 1];
+                                const pm1 = Math.round(first.postmile);
+                                const pm2 = Math.round(last.postmile);
+
+                                this.summaries.push({
+                                    direction: dirName,
+                                    message: `🔗 Chains required: ${first.location} (${pm1}) to ${last.location} (${pm2})`,
+                                    color: 'bg-orange-100 text-orange-800'
+                                });
+                            }
+                        });
+
+                        // Get timestamp
+                        const i80Data = data.data.find(item => item.cc.location.route === 'I-80');
+                        if (i80Data) {
+                            const ts = i80Data.cc.statusData.statusTimestamp;
                             this.lastUpdate = new Date(ts.statusDate + ' ' + ts.statusTime).toLocaleString();
                         }
                     } catch (e) {
