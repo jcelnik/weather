@@ -139,7 +139,7 @@
 
                         // Filter for I-80 (route 80) and sort by postmile
                         this.controls = data.data
-                            .filter(item => item.cc.location.route === '80')
+                            .filter(item => item.cc.location.route === 'I-80')
                             .map(item => ({
                                 index: item.cc.index,
                                 location: item.cc.location.locationName,
