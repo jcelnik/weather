@@ -1,73 +1,146 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fetch and Display KML with Alpine.js</title>
+
+    <!-- Roboto Font -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto">
+
+    <!-- AlpineJS -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- RSS Parser -->
+    <script src="https://cdn.jsdelivr.net/npm/rss-parser@3.7.6/dist/rss-parser.min.js"></script>
+
+    <!-- Twitter -->
+    <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                fontFamily: {
+                    sans: ["Roboto", "sans-serif"],
+                },
+                extend: {
+                    colors: {
+                        primary: '#042247'
+                    }
+                }
+            },
+        };
+    </script>
+
+    <title>Tahoe Weather</title>
 </head>
-<body>
-    <div x-data="kmlViewer()" x-init="init()">
-        <div x-show="loading">Loading KML data...</div>
-        <div x-show="error" class="error" x-text="error"></div>
-        <ul x-show="!loading && !error">
-            <template x-for="placemark in kmlData" :key="placemark.name">
-                <li>
-                    <strong x-text="placemark.name"></strong>
-                    <p x-html="placemark.description"></p>
-                    <p>Coordinates: <span x-text="placemark.coordinates.lon"></span>, <span x-text="placemark.coordinates.lat"></span></p>
-                </li>
-            </template>
-        </ul>
+
+<body class="bg-slate-100">
+    <div class="flex flex-col md:flex-row md:flex-wrap">
+        <section id="cameras" class="w-full md:w-1/2 lg:w-2/3 xl:w-1/2 md:p-2">
+            <div class="bg-white rounded-sm shadow">
+                <div class="uppercase font-bold pt-2 pl-2 text-center w-full md:text-left">Cameras</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2" x-data="{
+            cameras: [
+                        { name: 'Whitmore Grade (154)', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atwhitmoregrade/hwy80atwhitmoregrade.jpg' },
+                        { name: 'Kingvale EB (171)', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atkingvaleeb/hwy80atkingvaleeb.jpg' },
+                        { name: 'Kingvale WB (171)', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atkingvalewb/hwy80atkingvalewb.jpg' },
+                        { name: 'Soda Springs EB (174)', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atsodaspringseb/hwy80atsodaspringseb.jpg' },
+                        { name: 'Soda Springs WB (174)', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atsodaspringseb/hwy80atsodaspringseb.jpg' },
+                        { name: 'Castle Peak (176)', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atcastlepeak/hwy80atcastlepeak.jpg' },
+                        { name: 'Donner Summit (176)', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atdonnersummit/hwy80atdonnersummit.jpg' },
+                        { name: 'Donner Lake (180)', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atdonnerlake/hwy80atdonnerlake.jpg' },
+                        { name: 'Truckee Interchange (184)', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atoldagsta/hwy80atoldagsta.jpg' }
+                    ]
+                }">
+                    <template x-for="camera in cameras">
+                        <div class="text-xs w-full p-2 flex flex-col items-center">
+                            <span class="text-sm font-bold" x-text="camera.name"></span>
+                            <img :src="camera.url">
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </section>
+        <section id="chain-controls" class="w-full md:w-1/2 lg:w-1/3 xl:w-1/4 md:p-2 mt-4 md:mt-0">
+            <div class="bg-white rounded-sm shadow">
+                <div class="uppercase font-bold pt-2 pl-2 text-center w-full md:text-left">Chain controls</div>
+                <div class="w-full p-2 text-xs divide-y" x-data="setup()" x-init="init">
+                    <template x-for="entry in feed.slice(0,10)">
+                        <div class="py-1 flex space-x-2 items-center h-24">
+                            <span class="w-20 text-xs" x-text="entry.date.toLocaleDateString()"></span>
+                            <span class="grow" x-html="entry.content"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </section>
+        <section id="twitter-feeds" class="w-full lg:w-2/3 xl:w-1/4 md:p-2 mt-4 lg:mt-0" x-data="{
+                    feeds: [
+                { name: 'CaltransDist3', url: 'https://twitter.com/CaltransDist3' }
+            ]
+        }">
+            <div class="bg-white rounded-sm shadow h-[1080px]">
+                <div class="uppercase font-bold pt-2 pl-2 text-center w-full md:text-left">Twitter</div>
+
+                <template x-for="feed in feeds">
+                    <div class="text-xs w-full p-2 h-96">
+                        <a class="twitter-timeline" :href="feed.url" x-text="feed.name" data-tweet-limit="8"
+                            data-height="1000" data-chrome="noheader nofooter noborders"></a>
+                    </div>
+                </template>
+            </div>
+        </section>
     </div>
-    
 
     <script>
-        document.addEventListener('alpine:init', () => {
-            Alpine.data('kmlViewer', () => ({
-                kmlData: null,
-                loading: true,
-                error: null,
-                
-                init() {
-                    const url = 'https://quickmap.dot.ca.gov/data/cc.kml';
-                    const proxyUrl = 'https://api.allorigins.win/raw?url=';
-        
-                    fetch(proxyUrl + url)
-                        .then(response => {
-                            if (!response.ok) {
-                                throw new Error(`HTTP error! status: ${response.status}`);
-                            }
-                            return response.text();
-                        })
-                        .then(kmlString => {
-                            this.kmlData = this.parseKML(kmlString);
-                            this.loading = false;
-                        })
-                        .catch(error => {
-                            this.error = `Failed to fetch KML data: ${error.message}`;
-                            this.loading = false;
-                        });
+        let parser = new RSSParser()
+
+        function setup() {
+            return {
+                feed: [],
+
+                sources: [
+                    'https://xyzyx.org/@i80chains.rss'
+                ],
+
+                sortedFeed() {
+                    return this.feed.sort((first, second) => {
+                        return second.date.getTime() - first.date.getTime()
+                    })
                 },
-        
-                parseKML(kmlString) {
-                    const parser = new DOMParser();
-                    const kmlDoc = parser.parseFromString(kmlString, 'application/xml');
-                    
-                    const placemarks = Array.from(kmlDoc.getElementsByTagName('Placemark')).map(placemark => {
-                        const name = placemark.getElementsByTagName('name')[0]?.textContent;
-                        const description = placemark.getElementsByTagName('description')[0]?.textContent;
-                        const coordinates = placemark.getElementsByTagName('coordinates')[0]?.textContent.trim();
-                        const [lon, lat] = coordinates ? coordinates.split(',').map(Number) : [null, null];
-        
-                        return { name, description, coordinates: { lon, lat } };
-                    });
-        
-                    return placemarks;
+
+                get(source) {
+                    parser.parseURL(source, (err, feed) => {
+                        if (err) { }
+
+                        feed.items.slice(0, 10).forEach(entry => {
+                            this.addToFeed(entry)
+                        })
+                    })
+                },
+
+                addToFeed(item) {
+                    this.feed.push({
+                        author: item.author,
+                        title: item.title,
+                        content: item.content,
+                        link: item.link,
+                        date: new Date(item.pubDate),
+                    })
+                },
+
+                init() {
+                    this.sources.forEach(source => {
+                        this.get(source)
+                    })
                 }
-            }));
-        });
-        
+            }
+        }
     </script>
 </body>
+
 </html>
