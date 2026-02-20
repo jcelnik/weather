@@ -177,10 +177,11 @@
                                 const vd = r.rwisData.visibilityData || {};
                                 const hd = r.rwisData.humidityPrecipData || {};
 
-                                // Get air temperature from sensor table
+                                // Get air temperature from sensor table (value is in tenths of °C)
                                 let tempC = null;
                                 if (td.essTemperatureSensorTable && td.essTemperatureSensorTable[0]) {
-                                    tempC = parseFloat(td.essTemperatureSensorTable[0].essTemperatureSensorEntry.essAirTemperature);
+                                    const rawTemp = parseFloat(td.essTemperatureSensorTable[0].essTemperatureSensorEntry.essAirTemperature);
+                                    tempC = rawTemp / 10; // Convert from tenths to degrees
                                 }
                                 const tempF = tempC !== null ? Math.round(tempC * 9/5 + 32) : null;
 
