@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fetch and Display KML with Alpine.js</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+    <div x-data="kmlViewer()" x-init="init()">
+        <div x-show="loading">Loading KML data...</div>
+        <div x-show="error" class="error" x-text="error"></div>
+        <ul x-show="!loading && !error">
+            <template x-for="placemark in kmlData" :key="placemark.name">
+                <li>
+                    <strong x-text="placemark.name"></strong>
+                    <p x-html="placemark.description"></p>
+                    <p>Coordinates: <span x-text="placemark.coordinates.lon"></span>, <span x-text="placemark.coordinates.lat"></span></p>
+                </li>
+            </template>
+        </ul>
+    </div>
+    
+
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('kmlViewer', () => ({
+                kmlData: null,
+                loading: true,
+                error: null,
+                
+                init() {
+                    const url = 'https://quickmap.dot.ca.gov/data/cc.kml';
+                    const proxyUrl = 'https://corsproxy.io/?';
+        
+                    fetch(proxyUrl + url)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! status: ${response.status}`);
+                            }
+                            return response.text();
+                        })
+                        .then(kmlString => {
+                            this.kmlData = this.parseKML(kmlString);
+                            this.loading = false;
+                        })
+                        .catch(error => {
+                            this.error = `Failed to fetch KML data: ${error.message}`;
+                            this.loading = false;
+                        });
+                },
+        
+                parseKML(kmlString) {
+                    const parser = new DOMParser();
+                    const kmlDoc = parser.parseFromString(kmlString, 'application/xml');
+                    
+                    const placemarks = Array.from(kmlDoc.getElementsByTagName('Placemark')).map(placemark => {
+                        const name = placemark.getElementsByTagName('name')[0]?.textContent;
+                        const description = placemark.getElementsByTagName('description')[0]?.textContent;
+                        const coordinates = placemark.getElementsByTagName('coordinates')[0]?.textContent.trim();
+                        const [lon, lat] = coordinates ? coordinates.split(',').map(Number) : [null, null];
+        
+                        return { name, description, coordinates: { lon, lat } };
+                    });
+        
+                    return placemarks;
+                }
+            }));
+        });
+        
+    </script>
+</body>
+</html>
