@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <!-- Roboto Font -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap">
 
     <!-- AlpineJS -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -20,150 +20,241 @@
                 fontFamily: {
                     sans: ["Roboto", "sans-serif"],
                 },
-                extend: {
-                    colors: {
-                        primary: '#042247'
-                    }
-                }
             },
         };
     </script>
 
-    <title>Tahoe Weather</title>
+    <title>I-80 Tahoe Road Conditions</title>
 </head>
 
-<body class="bg-slate-100">
-    <div class="flex flex-col md:flex-row md:flex-wrap">
-        <section id="cameras" class="w-full md:w-1/2 lg:w-2/3 xl:w-1/2 md:p-2">
-            <div class="bg-white rounded-sm shadow">
-                <div class="uppercase font-bold pt-2 pl-2 text-center w-full md:text-left">Cameras</div>
-                <div class="grid grid-cols-1 sm:grid-cols-2" x-data="{
-            cameras: [
-                        { name: 'Whitmore Grade (154)', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atwhitmoregrade/hwy80atwhitmoregrade.jpg' },
-                        { name: 'Kingvale EB (171)', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atkingvaleeb/hwy80atkingvaleeb.jpg' },
-                        { name: 'Kingvale WB (171)', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atkingvalewb/hwy80atkingvalewb.jpg' },
-                        { name: 'Soda Springs EB (174)', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atsodaspringseb/hwy80atsodaspringseb.jpg' },
-                        { name: 'Soda Springs WB (174)', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atsodaspringseb/hwy80atsodaspringseb.jpg' },
-                        { name: 'Castle Peak (176)', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atcastlepeak/hwy80atcastlepeak.jpg' },
-                        { name: 'Donner Summit (176)', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atdonnersummit/hwy80atdonnersummit.jpg' },
-                        { name: 'Donner Lake (180)', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atdonnerlake/hwy80atdonnerlake.jpg' },
-                        { name: 'Truckee Interchange (184)', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atoldagsta/hwy80atoldagsta.jpg' }
-                    ]
-                }">
-                    <template x-for="camera in cameras">
-                        <div class="text-xs w-full p-2 flex flex-col items-center">
-                            <span class="text-sm font-bold" x-text="camera.name"></span>
-                            <img :src="camera.url">
-                        </div>
-                    </template>
+<body class="bg-slate-100 min-h-screen">
+    <div class="max-w-4xl mx-auto px-2 py-3 space-y-3" x-data="app()" x-init="init()">
+
+        <!-- Header -->
+        <header class="text-center">
+            <h1 class="text-xl font-bold text-slate-800">I-80 Tahoe Conditions</h1>
+        </header>
+
+        <!-- Chain Controls - Always Open -->
+        <section id="chain-controls">
+            <div class="rounded-lg overflow-hidden shadow"
+                 :class="chainStatus === 'clear' ? 'bg-green-500' : chainStatus === 'chains' ? 'bg-orange-500' : 'bg-white'">
+                <div class="p-4">
+                    <div x-show="chainsLoading" class="text-center py-2 text-slate-600">Loading chain controls...</div>
+                    <div x-show="chainsError" class="text-center py-2 text-red-600" x-text="chainsError"></div>
+                    <div x-show="!chainsLoading && !chainsError">
+                        <template x-for="summary in chainSummaries" :key="summary.direction">
+                            <div class="flex items-center justify-between py-2"
+                                 :class="chainStatus !== 'loading' ? 'text-white' : ''">
+                                <span class="font-bold text-lg" x-text="summary.direction"></span>
+                                <span class="text-sm md:text-base" x-text="summary.message"></span>
+                            </div>
+                        </template>
+                        <div class="text-xs text-center mt-2 opacity-75"
+                             :class="chainStatus !== 'loading' ? 'text-white' : 'text-gray-500'"
+                             x-text="'Updated: ' + chainsLastUpdate"></div>
+                    </div>
                 </div>
             </div>
         </section>
-        <section id="chain-controls" class="w-full md:w-1/2 lg:w-1/3 xl:w-1/4 md:p-2 mt-4 md:mt-0">
-            <div class="bg-white rounded-sm shadow">
-                <div class="uppercase font-bold pt-2 pl-2 text-center w-full md:text-left">Chain Controls - I-80</div>
-                <div class="w-full p-4" x-data="chainControls()" x-init="init()">
-                    <div x-show="loading" class="text-center py-4 text-gray-500">Loading...</div>
-                    <div x-show="error" class="text-center py-4 text-red-500" x-text="error"></div>
-                    <div x-show="!loading && !error" class="space-y-3">
-                        <template x-for="summary in summaries" :key="summary.direction">
-                            <div class="p-3 rounded" :class="summary.color">
-                                <div class="font-bold text-lg" x-text="summary.direction"></div>
-                                <div class="mt-1" x-text="summary.message"></div>
+
+        <!-- Cameras - Collapsible -->
+        <section id="cameras" x-data="{ open: true }">
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <button @click="open = !open"
+                        class="w-full px-4 py-3 flex items-center justify-between bg-slate-50 hover:bg-slate-100 transition">
+                    <span class="font-bold text-slate-700">Cameras</span>
+                    <svg class="w-5 h-5 text-slate-500 transition-transform" :class="open ? 'rotate-180' : ''"
+                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div x-show="open" x-collapse>
+                    <!-- Mobile: horizontal scroll -->
+                    <div class="flex overflow-x-auto snap-x snap-mandatory md:grid md:grid-cols-3 md:overflow-x-visible gap-2 p-3">
+                        <template x-for="camera in cameras" :key="camera.name">
+                            <div class="flex-shrink-0 w-72 md:w-auto snap-center">
+                                <div class="text-xs font-bold text-center mb-1 text-slate-600" x-text="camera.name"></div>
+                                <img :src="camera.url + '?t=' + cacheKey"
+                                     class="w-full rounded"
+                                     :alt="camera.name">
                             </div>
                         </template>
                     </div>
-                    <div x-show="!loading && !error" class="text-gray-400 text-xs text-center mt-3" x-text="'Updated: ' + lastUpdate"></div>
                 </div>
             </div>
         </section>
-        <section id="weather" class="w-full md:w-1/2 lg:w-1/3 xl:w-1/4 md:p-2 mt-4 md:mt-0">
-            <div class="bg-white rounded-sm shadow">
-                <div class="uppercase font-bold pt-2 pl-2 text-center w-full md:text-left">Road Weather - I-80</div>
-                <div class="w-full p-2" x-data="roadWeather()" x-init="init()">
-                    <div x-show="loading" class="text-center py-4 text-gray-500">Loading...</div>
-                    <div x-show="error" class="text-center py-4 text-red-500" x-text="error"></div>
-                    <div x-show="!loading && !error" class="space-y-2">
-                        <template x-for="station in stations" :key="station.name">
-                            <div class="p-2 bg-slate-50 rounded">
-                                <div class="font-bold text-sm" x-text="station.name"></div>
-                                <div class="text-xs text-gray-500" x-text="station.elevation + ' ft'"></div>
-                                <div class="grid grid-cols-2 gap-1 mt-1 text-sm">
-                                    <div>🌡️ <span x-text="station.temp"></span></div>
-                                    <div>💨 <span x-text="station.wind"></span></div>
-                                    <div>👁️ <span x-text="station.visibility"></span></div>
-                                    <div>💧 <span x-text="station.humidity"></span></div>
+
+        <!-- Road Weather - Collapsible -->
+        <section id="weather" x-data="{ open: true }">
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <button @click="open = !open"
+                        class="w-full px-4 py-3 flex items-center justify-between bg-slate-50 hover:bg-slate-100 transition">
+                    <span class="font-bold text-slate-700">Road Weather</span>
+                    <svg class="w-5 h-5 text-slate-500 transition-transform" :class="open ? 'rotate-180' : ''"
+                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div x-show="open" x-collapse>
+                    <div class="p-3">
+                        <div x-show="weatherLoading" class="text-center py-4 text-gray-500">Loading weather...</div>
+                        <div x-show="weatherError" class="text-center py-4 text-red-500" x-text="weatherError"></div>
+                        <div x-show="!weatherLoading && !weatherError" class="space-y-2">
+                            <template x-for="station in weatherStations" :key="station.name">
+                                <div class="flex items-center justify-between p-2 bg-slate-50 rounded text-sm">
+                                    <div>
+                                        <span class="font-bold" x-text="station.name"></span>
+                                        <span class="text-xs text-gray-500 ml-1" x-text="station.elevation + ' ft'"></span>
+                                    </div>
+                                    <div class="flex gap-3 text-xs md:text-sm">
+                                        <span x-text="station.temp"></span>
+                                        <span class="text-gray-500" x-text="station.wind"></span>
+                                        <span class="text-gray-500" x-text="station.visibility"></span>
+                                    </div>
                                 </div>
-                            </div>
-                        </template>
+                            </template>
+                            <div class="text-gray-400 text-xs text-center mt-2" x-text="'Updated: ' + weatherLastUpdate"></div>
+                        </div>
                     </div>
-                    <div x-show="!loading && !error" class="text-gray-400 text-xs text-center mt-2" x-text="'Updated: ' + lastUpdate"></div>
                 </div>
             </div>
         </section>
-        <section id="links" class="w-full lg:w-2/3 xl:w-1/4 md:p-2 mt-4 lg:mt-0">
-            <div class="bg-white rounded-sm shadow">
-                <div class="uppercase font-bold pt-2 pl-2 text-center w-full md:text-left">Updates</div>
-                <div class="p-4 space-y-3">
-                    <a href="https://x.com/CaltransDist3" target="_blank" class="flex items-center p-3 bg-slate-50 rounded hover:bg-slate-100 transition">
-                        <span class="text-2xl mr-3">🚧</span>
-                        <div>
-                            <div class="font-bold text-sm">Caltrans District 3</div>
-                            <div class="text-xs text-gray-500">@CaltransDist3</div>
-                        </div>
+
+        <!-- Links -->
+        <section id="links">
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <div class="px-4 py-3 bg-slate-50">
+                    <span class="font-bold text-slate-700">More Info</span>
+                </div>
+                <div class="p-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <a href="https://x.com/CaltransDist3" target="_blank"
+                       class="flex flex-col items-center p-3 bg-slate-50 rounded hover:bg-slate-100 transition text-center">
+                        <span class="text-2xl">🚧</span>
+                        <span class="text-xs font-bold mt-1">Caltrans D3</span>
                     </a>
-                    <a href="https://x.com/CHP_Truckee" target="_blank" class="flex items-center p-3 bg-slate-50 rounded hover:bg-slate-100 transition">
-                        <span class="text-2xl mr-3">🚔</span>
-                        <div>
-                            <div class="font-bold text-sm">CHP Truckee</div>
-                            <div class="text-xs text-gray-500">@CHP_Truckee</div>
-                        </div>
+                    <a href="https://x.com/CHP_Truckee" target="_blank"
+                       class="flex flex-col items-center p-3 bg-slate-50 rounded hover:bg-slate-100 transition text-center">
+                        <span class="text-2xl">🚔</span>
+                        <span class="text-xs font-bold mt-1">CHP Truckee</span>
                     </a>
-                    <a href="https://x.com/NWSReno" target="_blank" class="flex items-center p-3 bg-slate-50 rounded hover:bg-slate-100 transition">
-                        <span class="text-2xl mr-3">🌨️</span>
-                        <div>
-                            <div class="font-bold text-sm">NWS Reno</div>
-                            <div class="text-xs text-gray-500">@NWSReno</div>
-                        </div>
+                    <a href="https://x.com/NWSReno" target="_blank"
+                       class="flex flex-col items-center p-3 bg-slate-50 rounded hover:bg-slate-100 transition text-center">
+                        <span class="text-2xl">🌨️</span>
+                        <span class="text-xs font-bold mt-1">NWS Reno</span>
                     </a>
-                    <a href="https://roads.dot.ca.gov/" target="_blank" class="flex items-center p-3 bg-slate-50 rounded hover:bg-slate-100 transition">
-                        <span class="text-2xl mr-3">🛣️</span>
-                        <div>
-                            <div class="font-bold text-sm">QuickMap</div>
-                            <div class="text-xs text-gray-500">Caltrans Road Conditions</div>
-                        </div>
+                    <a href="https://roads.dot.ca.gov/?roadnumber=80" target="_blank"
+                       class="flex flex-col items-center p-3 bg-slate-50 rounded hover:bg-slate-100 transition text-center">
+                        <span class="text-2xl">🛣️</span>
+                        <span class="text-xs font-bold mt-1">QuickMap</span>
                     </a>
                 </div>
             </div>
         </section>
+
     </div>
 
     <script>
-        function roadWeather() {
+        function app() {
             return {
-                stations: [],
-                loading: true,
-                error: null,
-                lastUpdate: '',
+                // Cache key for camera refresh
+                cacheKey: Date.now(),
+
+                // Cameras
+                cameras: [
+                    { name: 'Whitmore Grade', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atwhitmoregrade/hwy80atwhitmoregrade.jpg' },
+                    { name: 'Kingvale EB', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atkingvaleeb/hwy80atkingvaleeb.jpg' },
+                    { name: 'Kingvale WB', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atkingvalewb/hwy80atkingvalewb.jpg' },
+                    { name: 'Soda Springs', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atsodaspringseb/hwy80atsodaspringseb.jpg' },
+                    { name: 'Castle Peak', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atcastlepeak/hwy80atcastlepeak.jpg' },
+                    { name: 'Donner Summit', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atdonnersummit/hwy80atdonnersummit.jpg' },
+                    { name: 'Donner Lake', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atdonnerlake/hwy80atdonnerlake.jpg' },
+                    { name: 'Truckee', url: 'https://cwwp2.dot.ca.gov/data/d3/cctv/image/hwy80atoldagsta/hwy80atoldagsta.jpg' }
+                ],
+
+                // Chain Controls
+                chainSummaries: [],
+                chainsLoading: true,
+                chainsError: null,
+                chainsLastUpdate: '',
+                chainStatus: 'loading', // 'loading', 'clear', 'chains'
+
+                // Weather
+                weatherStations: [],
+                weatherLoading: true,
+                weatherError: null,
+                weatherLastUpdate: '',
 
                 async init() {
+                    await Promise.all([
+                        this.loadChainControls(),
+                        this.loadWeather()
+                    ]);
+                },
+
+                async loadChainControls() {
                     try {
-                        const response = await fetch('https://cwwp2.dot.ca.gov/data/d3/rwis/rwisStatusD03.json');
-                        if (!response.ok) throw new Error('Failed to fetch data');
+                        const response = await fetch('https://cwwp2.dot.ca.gov/data/d3/cc/ccStatusD03.json');
+                        if (!response.ok) throw new Error('Failed to fetch');
                         const data = await response.json();
 
-                        // Mountain stations west to east
-                        const stationOrder = [
-                            'Blue Canyon',
-                            'Cisco Grove',
-                            'Donner Summit',
-                            'Donner Lake',
-                            'Truckee Scales',
-                            'Floriston'
-                        ];
+                        const i80 = data.data
+                            .filter(item => item.cc.location.route === 'I-80')
+                            .map(item => ({
+                                location: item.cc.location.locationName,
+                                direction: item.cc.location.direction,
+                                status: item.cc.statusData.status,
+                                postmile: parseFloat(item.cc.location.postmile)
+                            }));
 
-                        // Filter for mountain I-80 stations and map to display format
+                        let hasChains = false;
+
+                        ['E', 'W'].forEach(dir => {
+                            const points = i80
+                                .filter(p => p.direction === dir)
+                                .sort((a, b) => a.postmile - b.postmile);
+
+                            const dirName = dir === 'E' ? 'EB' : 'WB';
+                            const chainsRequired = points.filter(p => p.status !== 'R-0');
+
+                            if (chainsRequired.length === 0) {
+                                this.chainSummaries.push({
+                                    direction: dirName,
+                                    message: 'No restrictions'
+                                });
+                            } else {
+                                hasChains = true;
+                                const first = chainsRequired[0];
+                                const last = chainsRequired[chainsRequired.length - 1];
+                                this.chainSummaries.push({
+                                    direction: dirName,
+                                    message: `Chains: ${first.location} to ${last.location}`
+                                });
+                            }
+                        });
+
+                        this.chainStatus = hasChains ? 'chains' : 'clear';
+
+                        const i80Data = data.data.find(item => item.cc.location.route === 'I-80');
+                        if (i80Data) {
+                            const ts = i80Data.cc.statusData.statusTimestamp;
+                            this.chainsLastUpdate = new Date(ts.statusDate + ' ' + ts.statusTime).toLocaleTimeString();
+                        }
+                    } catch (e) {
+                        this.chainsError = 'Could not load chain controls';
+                    }
+                    this.chainsLoading = false;
+                },
+
+                async loadWeather() {
+                    try {
+                        const response = await fetch('https://cwwp2.dot.ca.gov/data/d3/rwis/rwisStatusD03.json');
+                        if (!response.ok) throw new Error('Failed to fetch');
+                        const data = await response.json();
+
+                        const stationOrder = ['Blue Canyon', 'Cisco Grove', 'Donner Summit', 'Donner Lake', 'Truckee Scales', 'Floriston'];
                         const stationMap = {};
+
                         data.data
                             .filter(item => item.rwis.location.route === 'I-80' && item.rwis.inService === 'true')
                             .forEach(item => {
@@ -175,121 +266,41 @@
                                 const wd = r.rwisData.windData || {};
                                 const td = r.rwisData.temperatureData || {};
                                 const vd = r.rwisData.visibilityData || {};
-                                const hd = r.rwisData.humidityPrecipData || {};
 
-                                // Get air temperature from sensor table (value is in tenths of °C)
                                 let tempC = null;
                                 if (td.essTemperatureSensorTable && td.essTemperatureSensorTable[0]) {
                                     const rawTemp = parseFloat(td.essTemperatureSensorTable[0].essTemperatureSensorEntry.essAirTemperature);
-                                    tempC = rawTemp / 10; // Convert from tenths to degrees
+                                    tempC = rawTemp / 10;
                                 }
                                 const tempF = tempC !== null ? Math.round(tempC * 9/5 + 32) : null;
 
-                                // Convert visibility from meters to miles
                                 const visM = parseFloat(vd.essVisibility);
                                 const visMi = !isNaN(visM) ? (visM / 1609.34).toFixed(1) : null;
 
-                                // Wind speed (already in mph)
                                 const wind = parseInt(wd.essAvgWindSpeed) || 0;
-                                const gust = parseInt(wd.essMaxWindGustSpeed) || 0;
-
-                                // Humidity
-                                const humidity = hd.essRelativeHumidity;
 
                                 stationMap[name] = {
                                     name: name,
                                     elevation: r.location.elevation,
-                                    temp: tempF !== null ? `${tempF}°F` : '--',
-                                    wind: gust > wind ? `${wind} mph (${gust} gust)` : `${wind} mph`,
-                                    visibility: visMi && visMi > 10 ? 'Clear' : visMi ? `${visMi} mi` : '--',
-                                    humidity: humidity ? `${humidity}%` : '--'
+                                    temp: tempF !== null ? `${tempF}°` : '--',
+                                    wind: `${wind} mph`,
+                                    visibility: visMi && visMi > 10 ? 'Clear' : visMi ? `${visMi} mi` : '--'
                                 };
                             });
 
-                        // Order stations west to east
-                        this.stations = stationOrder
+                        this.weatherStations = stationOrder
                             .filter(name => stationMap[name])
                             .map(name => stationMap[name]);
 
-                        // Get timestamp
                         const i80Data = data.data.find(item => item.rwis.location.route === 'I-80');
                         if (i80Data) {
                             const ts = i80Data.rwis.recordTimestamp;
-                            this.lastUpdate = new Date(ts.recordDate + ' ' + ts.recordTime).toLocaleString();
+                            this.weatherLastUpdate = new Date(ts.recordDate + ' ' + ts.recordTime).toLocaleTimeString();
                         }
                     } catch (e) {
-                        this.error = 'Could not load weather: ' + e.message;
+                        this.weatherError = 'Could not load weather';
                     }
-                    this.loading = false;
-                }
-            }
-        }
-
-        function chainControls() {
-            return {
-                summaries: [],
-                loading: true,
-                error: null,
-                lastUpdate: '',
-
-                async init() {
-                    try {
-                        const response = await fetch('https://cwwp2.dot.ca.gov/data/d3/cc/ccStatusD03.json');
-                        if (!response.ok) throw new Error('Failed to fetch data');
-                        const data = await response.json();
-
-                        // Filter for I-80 and organize by direction
-                        const i80 = data.data
-                            .filter(item => item.cc.location.route === 'I-80')
-                            .map(item => ({
-                                location: item.cc.location.locationName,
-                                direction: item.cc.location.direction,
-                                status: item.cc.statusData.status,
-                                postmile: parseFloat(item.cc.location.postmile)
-                            }));
-
-                        // Process each direction
-                        ['E', 'W'].forEach(dir => {
-                            const points = i80
-                                .filter(p => p.direction === dir)
-                                .sort((a, b) => a.postmile - b.postmile);
-
-                            const dirName = dir === 'E' ? 'EASTBOUND' : 'WESTBOUND';
-
-                            // Find segments with chain controls (not R-0)
-                            const chainsRequired = points.filter(p => p.status !== 'R-0');
-
-                            if (chainsRequired.length === 0) {
-                                this.summaries.push({
-                                    direction: dirName,
-                                    message: 'No restrictions',
-                                    color: 'bg-green-100 text-green-800'
-                                });
-                            } else {
-                                // Find the range
-                                const first = chainsRequired[0];
-                                const last = chainsRequired[chainsRequired.length - 1];
-                                const pm1 = Math.round(first.postmile);
-                                const pm2 = Math.round(last.postmile);
-
-                                this.summaries.push({
-                                    direction: dirName,
-                                    message: `🔗 Chains required: ${first.location} (${pm1}) to ${last.location} (${pm2})`,
-                                    color: 'bg-orange-100 text-orange-800'
-                                });
-                            }
-                        });
-
-                        // Get timestamp
-                        const i80Data = data.data.find(item => item.cc.location.route === 'I-80');
-                        if (i80Data) {
-                            const ts = i80Data.cc.statusData.statusTimestamp;
-                            this.lastUpdate = new Date(ts.statusDate + ' ' + ts.statusTime).toLocaleString();
-                        }
-                    } catch (e) {
-                        this.error = 'Could not load chain controls: ' + e.message;
-                    }
-                    this.loading = false;
+                    this.weatherLoading = false;
                 }
             }
         }
