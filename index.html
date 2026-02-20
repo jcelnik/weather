@@ -38,7 +38,7 @@
         <!-- Chain Controls - Always Open -->
         <section id="chain-controls">
             <div class="rounded-lg overflow-hidden shadow"
-                 :class="chainStatus === 'clear' ? 'bg-green-500' : chainStatus === 'chains' ? 'bg-orange-500' : 'bg-white'">
+                 :class="chainStatus === 'clear' ? 'bg-green-500' : chainStatus === 'chains' ? 'bg-orange-500' : chainStatus === 'closed' ? 'bg-red-600' : 'bg-white'">
                 <div class="p-4">
                     <div x-show="chainsLoading" class="text-center py-2 text-slate-600">Loading chain controls...</div>
                     <div x-show="chainsError" class="text-center py-2 text-red-600" x-text="chainsError"></div>
@@ -107,10 +107,10 @@
                                         <span class="font-bold" x-text="station.name"></span>
                                         <span class="text-xs text-gray-500 ml-1" x-text="station.elevation + ' ft'"></span>
                                     </div>
-                                    <div class="flex gap-3 text-xs md:text-sm">
-                                        <span x-text="station.temp"></span>
-                                        <span class="text-gray-500" x-text="station.wind"></span>
-                                        <span class="text-gray-500" x-text="station.visibility"></span>
+                                    <div class="flex text-xs md:text-sm">
+                                        <span class="w-10 text-right" x-text="station.temp"></span>
+                                        <span class="w-16 text-right text-gray-500" x-text="station.wind"></span>
+                                        <span class="w-12 text-right text-gray-500" x-text="station.visibility"></span>
                                     </div>
                                 </div>
                             </template>
@@ -208,6 +208,7 @@
                             }));
 
                         let hasChains = false;
+                        let hasClosed = false;
 
                         ['E', 'W'].forEach(dir => {
                             const points = i80
@@ -215,9 +216,20 @@
                                 .sort((a, b) => a.postmile - b.postmile);
 
                             const dirName = dir === 'E' ? 'EB' : 'WB';
-                            const chainsRequired = points.filter(p => p.status !== 'R-0');
 
-                            if (chainsRequired.length === 0) {
+                            // Check for closures first (status containing 'C' like RC or just checking for closed)
+                            const closedPoints = points.filter(p => p.status === 'RC' || p.status.includes('CLOSED'));
+                            const chainsRequired = points.filter(p => p.status !== 'R-0' && p.status !== 'RC');
+
+                            if (closedPoints.length > 0) {
+                                hasClosed = true;
+                                const first = closedPoints[0];
+                                const last = closedPoints[closedPoints.length - 1];
+                                this.chainSummaries.push({
+                                    direction: dirName,
+                                    message: `CLOSED: ${first.location} to ${last.location}`
+                                });
+                            } else if (chainsRequired.length === 0) {
                                 this.chainSummaries.push({
                                     direction: dirName,
                                     message: 'No restrictions'
@@ -233,7 +245,7 @@
                             }
                         });
 
-                        this.chainStatus = hasChains ? 'chains' : 'clear';
+                        this.chainStatus = hasClosed ? 'closed' : hasChains ? 'chains' : 'clear';
 
                         const i80Data = data.data.find(item => item.cc.location.route === 'I-80');
                         if (i80Data) {
