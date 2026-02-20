@@ -266,6 +266,7 @@
 
                         const stationOrder = ['Blue Canyon', 'Cisco Grove', 'Donner Summit', 'Donner Lake', 'Truckee Scales', 'Floriston'];
                         const stationMap = {};
+                        let latestTimestamp = 0;
 
                         data.data
                             .filter(item => item.rwis.location.route === 'I-80' && item.rwis.inService === 'true')
@@ -274,6 +275,13 @@
                                 const name = r.location.locationName.replace('Hwy 80 at ', '');
 
                                 if (!stationOrder.includes(name)) return;
+
+                                // Track most recent timestamp
+                                const ts = r.recordTimestamp;
+                                const epoch = parseInt(ts.recordEpoch) * 1000;
+                                if (epoch > latestTimestamp) {
+                                    latestTimestamp = epoch;
+                                }
 
                                 const wd = r.rwisData.windData || {};
                                 const td = r.rwisData.temperatureData || {};
@@ -304,10 +312,8 @@
                             .filter(name => stationMap[name])
                             .map(name => stationMap[name]);
 
-                        const i80Data = data.data.find(item => item.rwis.location.route === 'I-80');
-                        if (i80Data) {
-                            const ts = i80Data.rwis.recordTimestamp;
-                            this.weatherLastUpdate = new Date(ts.recordDate + ' ' + ts.recordTime).toLocaleTimeString();
+                        if (latestTimestamp > 0) {
+                            this.weatherLastUpdate = new Date(latestTimestamp).toLocaleTimeString();
                         }
                     } catch (e) {
                         this.weatherError = 'Could not load weather';
